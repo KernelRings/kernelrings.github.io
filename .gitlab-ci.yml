@@ -17,7 +17,7 @@ pages:
   script:
   - mkdir .public
   - cp -r * .public
-  - mv .public/README.md
+  - rm .public/README.md
   - mv .public public
   artifacts:
     paths:
