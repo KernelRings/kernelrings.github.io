@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSON Quiz Taker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* Custom styles for better UI/UX */
+        .card {
+            background-color: white;
+            border-radius: 1rem;
+            padding: 2rem;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease-in-out;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            font-weight: 600;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #4338ca;
+        }
+        .btn-secondary {
+            background-color: #e5e7eb;
+            color: #1f2937;
+        }
+        .btn-secondary:hover {
+            background-color: #d1d5db;
+        }
+        .option-btn {
+            display: block;
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            margin-bottom: 0.75rem;
+            border: 2px solid #e5e7eb;
+            border-radius: 0.5rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .option-btn:not(:disabled):hover {
+            border-color: #a5b4fc;
+            background-color: #eef2ff;
+        }
+        .option-btn:disabled {
+            cursor: not-allowed;
+        }
+        .option-btn.correct-answer {
+            border-color: #10b981; /* Green-500 */
+            background-color: #f0fdf4; /* Green-50 */
+            color: #059669; /* Green-600 */
+            font-weight: 600;
+        }
+        .option-btn.incorrect-answer {
+            border-color: #ef4444; /* Red-500 */
+            background-color: #fef2f2; /* Red-50 */
+            color: #dc2626; /* Red-600 */
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        /* Styles for review section */
+        .review-card {
+            border-left: 4px solid #d1d5db; /* Default border */
+            margin-bottom: 1rem;
+            padding-left: 1rem;
+        }
+        .review-card.correct {
+            border-color: #10b981; /* Green */
+            background-color: #f0fdf4;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .review-card.incorrect {
+            border-color: #ef4444; /* Red */
+            background-color: #fef2f2;
+            padding-top: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-radius: 0.25rem;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-3xl mx-auto">
+        <!-- Upload Screen -->
+        <div id="upload-screen" class="card text-center fade-in">
+            <h1 class="text-3xl font-bold mb-2 text-gray-900">Quiz Loader</h1>
+            <p class="text-gray-600 mb-6">Load a quiz, import progress, or manage your last session.</p>
+            <div class="space-y-4">
+                 <label for="file-upload" class="btn btn-primary w-full sm:w-auto">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                    </svg>
+                    Load File (New Quiz or Progress)
+                </label>
+                <input id="file-upload" type="file" class="hidden" accept=".json">
+                <br>
+                <button id="resume-btn" class="btn btn-secondary hidden w-full sm:w-auto">Resume Quiz</button>
+                <button id="home-review-btn" class="btn btn-secondary hidden w-full sm:w-auto">Review Wrong Answers</button>
+                <button id="export-btn" class="btn btn-secondary hidden w-full sm:w-auto">Export Progress</button>
+            </div>
+            <p id="file-name" class="mt-4 text-sm text-gray-500"></p>
+            <p id="upload-error" class="mt-4 text-sm text-red-600 font-semibold"></p>
+        </div>
+
+        <!-- Quiz Screen -->
+        <div id="quiz-screen" class="hidden fade-in">
+            <div class="card">
+                <!-- Progress Bar -->
+                <div class="mb-6">
+                    <div class="flex justify-between mb-1">
+                        <span class="text-base font-medium text-indigo-700">Question <span id="current-q-num"></span> of <span id="total-q-num"></span></span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-2.5">
+                        <div id="progress-bar" class="bg-indigo-600 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- Question Area -->
+                <div id="question-area">
+                    <p class="text-xl font-semibold mb-6" id="question-text"></p>
+                    <div id="options-container"></div>
+                    <div id="justification-area" class="mt-6"></div>
+                </div>
+            </div>
+            <!-- Navigation -->
+            <div class="flex justify-between mt-6">
+                <button id="prev-btn" class="btn btn-secondary">Previous</button>
+                <button id="next-btn" class="btn btn-primary">Next</button>
+                <button id="submit-btn" class="btn btn-primary bg-green-600 hover:bg-green-700 hidden">Submit Quiz</button>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="results-screen" class="hidden fade-in card text-center">
+            <h2 class="text-3xl font-bold text-gray-900">Quiz Complete!</h2>
+            <p class="text-xl mt-4">You scored:</p>
+            <p class="text-6xl font-bold my-4 text-indigo-600"><span id="score">0</span> / <span id="total-score">0</span></p>
+            <div id="review-container" class="mt-8 text-left hidden">
+                <h3 class="text-2xl font-bold mb-4 text-gray-800">Review Your Wrong Answers</h3>
+                <div id="review-content"></div>
+            </div>
+            <div class="mt-8 space-x-4">
+                <button id="review-btn" class="btn btn-secondary">Review Wrong Answers</button>
+                <button id="restart-btn" class="btn btn-primary">Start New Quiz</button>
+            </div>
+        </div>
+
+        <!-- Standalone Review Screen -->
+        <div id="review-screen" class="hidden fade-in">
+             <div class="card">
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Reviewing Incorrect Answers</h2>
+                <div id="standalone-review-content"></div>
+                <div class="mt-8 text-center">
+                     <button id="back-to-home-btn" class="btn btn-primary">Back to Home</button>
+                </div>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- Local Storage Key ---
+            const QUIZ_STATE_KEY = 'jsonQuizAppState';
+
+            // --- DOM Elements ---
+            const uploadScreen = document.getElementById('upload-screen');
+            const quizScreen = document.getElementById('quiz-screen');
+            const resultsScreen = document.getElementById('results-screen');
+            const reviewScreen = document.getElementById('review-screen');
+
+            const fileUpload = document.getElementById('file-upload');
+            const fileNameDisplay = document.getElementById('file-name');
+            const uploadError = document.getElementById('upload-error');
+            const resumeBtn = document.getElementById('resume-btn');
+            const homeReviewBtn = document.getElementById('home-review-btn');
+            const exportBtn = document.getElementById('export-btn');
+
+            const progressBar = document.getElementById('progress-bar');
+            const currentQNum = document.getElementById('current-q-num');
+            const totalQNum = document.getElementById('total-q-num');
+            const questionText = document.getElementById('question-text');
+            const optionsContainer = document.getElementById('options-container');
+            const justificationArea = document.getElementById('justification-area');
+
+            const prevBtn = document.getElementById('prev-btn');
+            const nextBtn = document.getElementById('next-btn');
+            const submitBtn = document.getElementById('submit-btn');
+
+            const scoreDisplay = document.getElementById('score');
+            const totalScoreDisplay = document.getElementById('total-score');
+            const reviewBtn = document.getElementById('review-btn');
+            const restartBtn = document.getElementById('restart-btn');
+            const reviewContainer = document.getElementById('review-container');
+            const reviewContent = document.getElementById('review-content');
+
+            const standaloneReviewContent = document.getElementById('standalone-review-content');
+            const backToHomeBtn = document.getElementById('back-to-home-btn');
+
+            // --- State Variables ---
+            let quizData = [];
+            let userAnswers = [];
+            let currentQuestionIndex = 0;
+
+            // --- Initial Load ---
+            checkForSavedState();
+
+            // --- Event Listeners ---
+            fileUpload.addEventListener('change', handleFileUpload);
+            resumeBtn.addEventListener('click', resumeQuiz);
+            homeReviewBtn.addEventListener('click', showReviewScreen);
+            exportBtn.addEventListener('click', exportState);
+            backToHomeBtn.addEventListener('click', showHomeScreen);
+            prevBtn.addEventListener('click', showPreviousQuestion);
+            nextBtn.addEventListener('click', showNextQuestion);
+            submitBtn.addEventListener('click', showResults);
+            restartBtn.addEventListener('click', restartQuiz);
+            reviewBtn.addEventListener('click', toggleReview);
+
+            // --- State Management Functions ---
+
+            function saveState() {
+                const state = { quizData, userAnswers, currentQuestionIndex };
+                localStorage.setItem(QUIZ_STATE_KEY, JSON.stringify(state));
+            }
+
+            function loadState() {
+                const savedState = localStorage.getItem(QUIZ_STATE_KEY);
+                return savedState ? JSON.parse(savedState) : null;
+            }
+            
+            function clearState() {
+                localStorage.removeItem(QUIZ_STATE_KEY);
+            }
+
+            function checkForSavedState() {
+                const state = loadState();
+                if (state && state.quizData && state.quizData.length > 0) {
+                    resumeBtn.classList.remove('hidden');
+                    exportBtn.classList.remove('hidden');
+                    
+                    const hasWrongAnswers = state.userAnswers.some((answer, index) => {
+                        return answer !== null && answer !== state.quizData[index].answer;
+                    });
+
+                    if (hasWrongAnswers) {
+                        homeReviewBtn.classList.remove('hidden');
+                    } else {
+                        homeReviewBtn.classList.add('hidden');
+                    }
+
+                } else {
+                    resumeBtn.classList.add('hidden');
+                    homeReviewBtn.classList.add('hidden');
+                    exportBtn.classList.add('hidden');
+                }
+            }
+
+            function resumeQuiz() {
+                const savedState = loadState();
+                if (savedState) {
+                    quizData = savedState.quizData;
+                    userAnswers = savedState.userAnswers;
+                    currentQuestionIndex = savedState.currentQuestionIndex;
+                    
+                    uploadScreen.classList.add('hidden');
+                    reviewScreen.classList.add('hidden');
+                    resultsScreen.classList.add('hidden');
+                    quizScreen.classList.remove('hidden');
+                    displayQuestion(currentQuestionIndex);
+                }
+            }
+            
+            function exportState() {
+                const state = loadState();
+                if (!state) {
+                    alert('No quiz progress to export.');
+                    return;
+                }
+                const stateJson = JSON.stringify(state, null, 2);
+                const blob = new Blob([stateJson], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'quiz-progress.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            // --- Screen Navigation ---
+            function showHomeScreen() {
+                quizScreen.classList.add('hidden');
+                resultsScreen.classList.add('hidden');
+                reviewScreen.classList.add('hidden');
+                uploadScreen.classList.remove('hidden');
+                checkForSavedState();
+            }
+
+            function showReviewScreen() {
+                 const state = loadState();
+                if (!state) return;
+                
+                quizData = state.quizData;
+                userAnswers = state.userAnswers;
+
+                uploadScreen.classList.add('hidden');
+                quizScreen.classList.add('hidden');
+                resultsScreen.classList.add('hidden');
+                reviewScreen.classList.remove('hidden');
+                renderReviewContent(standaloneReviewContent);
+            }
+
+            // --- Core Quiz Functions ---
+
+            function handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                fileNameDisplay.textContent = `File: ${file.name}`;
+                uploadError.textContent = '';
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const json = JSON.parse(e.target.result);
+                        
+                        // Check if it's an exported state file
+                        if (json.quizData && json.userAnswers && typeof json.currentQuestionIndex !== 'undefined') {
+                            quizData = json.quizData;
+                            userAnswers = json.userAnswers;
+                            currentQuestionIndex = json.currentQuestionIndex;
+                            saveState();
+                            resumeQuiz();
+                        } 
+                        // Check if it's a new quiz file
+                        else if (Array.isArray(json) && json.length > 0 && json[0].question) {
+                           clearState(); 
+                           quizData = json;
+                           startQuiz();
+                        } else {
+                           throw new Error("Invalid JSON format. Not a valid quiz or progress file.");
+                        }
+                    } catch (error) {
+                        console.error("JSON Parsing Error:", error);
+                        uploadError.textContent = `Error: ${error.message}. Please check the file format.`;
+                        fileNameDisplay.textContent = '';
+                    }
+                };
+                reader.readAsText(file);
+            }
+
+            function startQuiz() {
+                currentQuestionIndex = 0;
+                userAnswers = new Array(quizData.length).fill(null);
+                saveState();
+                uploadScreen.classList.add('hidden');
+                resultsScreen.classList.add('hidden');
+                reviewScreen.classList.add('hidden');
+                quizScreen.classList.remove('hidden');
+                displayQuestion(currentQuestionIndex);
+            }
+            
+            function displayQuestion(index) {
+                const question = quizData[index];
+                if (!question) return;
+
+                const progress = ((index + 1) / quizData.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                currentQNum.textContent = index + 1;
+                totalQNum.textContent = quizData.length;
+
+                const userAnswer = userAnswers[index];
+                const isAnswered = userAnswer !== null;
+                const correctAnswer = question.answer;
+
+                questionText.textContent = question.question;
+                optionsContainer.innerHTML = '';
+                justificationArea.innerHTML = '';
+
+                Object.entries(question.option).forEach(([key, value]) => {
+                    const optionBtn = document.createElement('button');
+                    optionBtn.className = 'option-btn';
+                    optionBtn.innerHTML = `<span class="font-bold mr-4">${key}.</span> ${value}`;
+                    optionBtn.dataset.key = key;
+
+                    if (isAnswered) {
+                        optionBtn.disabled = true;
+                        if (key === correctAnswer) optionBtn.classList.add('correct-answer');
+                        else if (key === userAnswer) optionBtn.classList.add('incorrect-answer');
+                    } else {
+                        optionBtn.addEventListener('click', () => selectAnswer(index, key));
+                    }
+                    optionsContainer.appendChild(optionBtn);
+                });
+
+                if (isAnswered) {
+                    let justificationsHTML = '<h4 class="font-semibold text-gray-700 mb-3 text-lg">Justification:</h4><div class="space-y-2 text-sm">';
+                    Object.entries(question.justification).forEach(([key, just]) => {
+                        let cardClass = '';
+                        if (key === correctAnswer) cardClass = 'correct';
+                        else if (key === userAnswer) cardClass = 'incorrect';
+                        
+                        justificationsHTML += `<div class="review-card ${cardClass}"><p><span class="font-bold">${key}:</span> ${just}</p></div>`;
+                    });
+                    justificationsHTML += '</div>';
+                    justificationArea.innerHTML = justificationsHTML;
+                    justificationArea.classList.add('fade-in');
+                }
+
+                updateNavButtons();
+            }
+            
+            function selectAnswer(qIndex, optionKey) {
+                if (userAnswers[qIndex] !== null) return;
+                userAnswers[qIndex] = optionKey;
+                saveState();
+                displayQuestion(qIndex);
+            }
+
+            function updateNavButtons() {
+                prevBtn.disabled = currentQuestionIndex === 0;
+                prevBtn.classList.toggle('opacity-50', currentQuestionIndex === 0);
+                
+                if (currentQuestionIndex === quizData.length - 1) {
+                    nextBtn.classList.add('hidden');
+                    submitBtn.classList.remove('hidden');
+                } else {
+                    nextBtn.classList.remove('hidden');
+                    submitBtn.classList.add('hidden');
+                }
+            }
+
+            function showPreviousQuestion() {
+                if (currentQuestionIndex > 0) {
+                    currentQuestionIndex--;
+                    saveState();
+                    displayQuestion(currentQuestionIndex);
+                }
+            }
+
+            function showNextQuestion() {
+                if (currentQuestionIndex < quizData.length - 1) {
+                    currentQuestionIndex++;
+                    saveState();
+                    displayQuestion(currentQuestionIndex);
+                }
+            }
+            
+            function showResults() {
+                let score = 0;
+                userAnswers.forEach((answer, index) => {
+                    if (answer === quizData[index].answer) score++;
+                });
+
+                scoreDisplay.textContent = score;
+                totalScoreDisplay.textContent = quizData.length;
+
+                quizScreen.classList.add('hidden');
+                resultsScreen.classList.remove('hidden');
+                
+                renderReviewContent(reviewContent);
+            }
+
+            function renderReviewContent(containerElement) {
+                containerElement.innerHTML = '';
+                let wrongAnswersFound = false;
+                quizData.forEach((question, index) => {
+                    const userAnswer = userAnswers[index];
+                    const correctAnswer = question.answer;
+
+                    // Only show questions that were answered and were incorrect
+                    if (userAnswer !== null && userAnswer !== correctAnswer) {
+                        wrongAnswersFound = true;
+                        const reviewBlock = document.createElement('div');
+                        reviewBlock.className = 'mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200';
+                        
+                        let justificationsHTML = '<div class="mt-4 space-y-2 text-sm">';
+                        Object.entries(question.justification).forEach(([key, just]) => {
+                            let cardClass = '';
+                            if (key === correctAnswer) cardClass = 'correct';
+                            else if (key === userAnswer) cardClass = 'incorrect';
+                            
+                            justificationsHTML += `<div class="review-card ${cardClass}"><p><span class="font-bold">${key}:</span> ${just}</p></div>`;
+                        });
+                        justificationsHTML += '</div>';
+
+                        reviewBlock.innerHTML = `
+                            <p class="font-semibold text-lg">${index + 1}. ${question.question}</p>
+                            <p class="mt-2 text-red-600 font-medium">Your answer: ${userAnswer} (${question.option[userAnswer] || ''})</p>
+                            <p class="mt-1 text-green-600 font-medium">Correct answer: ${correctAnswer} (${question.option[correctAnswer]})</p>
+                            <h4 class="font-semibold mt-4 text-gray-700">Justification:</h4>
+                            ${justificationsHTML}`;
+                        containerElement.appendChild(reviewBlock);
+                    }
+                });
+
+                if (!wrongAnswersFound) {
+                    containerElement.innerHTML = '<p class="text-center text-green-600 font-semibold">No incorrect answers to review!</p>';
+                }
+            }
+            
+            function toggleReview() {
+                const isHidden = reviewContainer.classList.contains('hidden');
+                reviewContainer.classList.toggle('hidden');
+                reviewBtn.textContent = isHidden ? 'Hide Review' : 'Review Wrong Answers';
+            }
+
+            function restartQuiz() {
+                clearState();
+                quizData = [];
+                userAnswers = [];
+                currentQuestionIndex = 0;
+                
+                fileUpload.value = '';
+                fileNameDisplay.textContent = '';
+                uploadError.textContent = '';
+                reviewContainer.classList.add('hidden');
+                reviewBtn.textContent = 'Review Wrong Answers';
+
+                showHomeScreen();
+            }
+        });
+    </script>
+</body>
+</html>
